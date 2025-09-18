@@ -89,7 +89,7 @@ class ObjectDetectionInference(BaseInference):
         results = []
         img_h, img_w = img_hw
 
-        if self.model_name.startswith("yolov8"):
+        if self.model_name.startswith("yolov8n"):
             # YOLOv8 output format: (1, 4+num_classes, num_detections)
             # Transpose to get (num_detections, 4+num_classes)
             outputs = np.transpose(np.squeeze(raw_output[0]))
@@ -123,7 +123,7 @@ class ObjectDetectionInference(BaseInference):
             scores_list = scores.tolist()
             class_ids_list = class_ids.tolist()
 
-        elif self.model_name.startswith("yolov10"):
+        elif self.model_name.startswith("yolov10n"):
             # YOLOv10 output format: Direct detections with 6 values per detection
             # Format: [x1, y1, x2, y2, confidence, class_id]
             
