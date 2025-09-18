@@ -238,11 +238,11 @@ class ObjectDetectionInference(BaseInference):
             Prints original image dimensions for debugging purposes.
         """
         # Validate model architecture compatibility
-        if not any(k in str(getattr(self, "model_name", "")).lower()
+        if not any(k in str(getattr(self, "base_model", "")).lower()
                   for k in ("yolov8", "yolov10", "yolov11")):
             raise ValueError(
                 f"Unsupported model architecture. Expected: yolov8/yolov10/yolov11, "
-                f"Found: {getattr(self, 'model_name', None)}")
+                f"Found: {getattr(self, 'base_model', None)}")
 
         # Ensure model is loaded before inference
         self._load_model()

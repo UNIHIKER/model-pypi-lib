@@ -49,20 +49,20 @@ class BaseInference:
             data = yaml.safe_load(f)
 
         # Extract model name if present
-        if "model_name" in data:
-            self.model_name = data["model_name"]
+        if "base_model" in data:
+            self.model_name = data["base_model"]
 
         # Parse class names mapping and count classes
-        if "class_names" in data:
+        if "labels" in data:
             self.class_names = {
                 int(k) if str(k).isdigit() else str(k): v
-                for k, v in data["class_names"].items()
+                for k, v in data["labels"].items()
             }
             self.num_classes = len(self.class_names)
 
         # Set input image size from config if specified
-        if "imgsz" in data:
-            self.imgsz = tuple(data["imgsz"])
+        if "input_shape" in data:
+            self.imgsz = tuple(data["input_shape"])
 
     def _load_model(self):
         """

@@ -42,7 +42,7 @@ class SegmentInference(BaseInference):
             with open(yaml_path, 'r', encoding='utf-8') as file:
                 config = yaml.safe_load(file)
             
-            model_name = config.get('model_name', '').lower()
+            model_name = config.get('base_model', '').lower()
             
             # Check if it's YOLOv8, if not, exit
             if 'yolov8' not in model_name:

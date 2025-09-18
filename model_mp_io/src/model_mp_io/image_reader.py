@@ -84,9 +84,13 @@ class ImageReader:
                 print(f"[INFO] Image file {self.source} loaded successfully")
             else:
                 # Video file initialization
-                self.cap = cv2.VideoCapture(self.source)
+                self.cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
                 if self.cap.isOpened():
-                    print(f"[INFO] Video file {self.source} opened successfully")
+                    total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    fps = self.cap.get(cv2.CAP_PROP_FPS)
+                    width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    print(f"[INFO] Video file {self.source}: {total_frames} frames at {fps} FPS, resolution {width}x{height}")
                     self.is_image = False
                     self.is_camera = False
                 else:
@@ -167,7 +171,11 @@ class ImageReader:
             
         ret, frame = self.cap.read()
         if not ret:
-            raise RuntimeError("Failed to capture frame from video source")
+            # 如果是视频文件播放到末尾，不抛错，返回 None
+            if not self.is_camera:  
+                return None
+            else:
+                raise RuntimeError("Failed to capture frame from camera")
             
         return frame
 
