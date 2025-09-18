@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="model-mp-core",
-    version="0.0.3",
+    version="0.0.4",
     author="unihiker Team",
     author_email="unihiker@dfrobot.com",
     description="Core inference library for Mind+ model training tool",
