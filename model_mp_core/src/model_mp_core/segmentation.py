@@ -239,6 +239,9 @@ class SegmentInference(BaseInference):
             
             # Extract class probabilities (skip objectness score at index 4)
             class_probs = row[4:4 + self.num_classes]
+
+            if class_probs.size == 0:
+                return {"model": "segmentation", "result": []}  
             
             # Find class with highest probability
             cls_id = np.argmax(class_probs)

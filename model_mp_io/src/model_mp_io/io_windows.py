@@ -89,6 +89,8 @@ class IO_Windows:
             success = window_mgr.show(camera_frame, "Live Feed")
         """
         # Display image with error checking
+        if frame is None:
+            return False
         if cv2.imshow(window_name, frame) == -1:
             return False
         return True
