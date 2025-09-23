@@ -16,7 +16,7 @@ class ObjectDetectionInference(BaseInference):
             iou_thres (float): IoU threshold for NMS [0, 1]
             imgsz (tuple, optional): Input image size. Defaults to (320, 320)
         """
-        super().__init__(onnx_model_path, onnx_yaml_path, imgsz or (320, 320))
+        super().__init__(onnx_model_path, onnx_yaml_path, imgsz)
         self.confidence_thres = confidence_thres
         self.iou_thres = iou_thres
 
