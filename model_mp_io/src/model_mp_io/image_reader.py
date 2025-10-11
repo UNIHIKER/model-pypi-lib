@@ -171,7 +171,7 @@ class ImageReader:
             
         ret, frame = self.cap.read()
         if not ret:
-            # 如果是视频文件播放到末尾，不抛错，返回 None
+            # if video file ends, return None
             if not self.is_camera:  
                 raise RuntimeError("End of video file reached")
             else:

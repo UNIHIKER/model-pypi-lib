@@ -43,10 +43,10 @@ class SegmentInference(BaseInference):
                 config = yaml.safe_load(file)
             
             model_name = config.get('base_model', '').lower()
-            
-            # Check if it's YOLOv8, if not, exit
-            if 'yolov8' not in model_name:
-                raise ValueError("Only YOLOv8 models are supported. Please check the model path or format.")
+            # Check if it's YOLOv11 or YOLOv8, if not, exit
+            if 'yolo11' not in model_name and 'yolov8' not in model_name:
+                raise ValueError("Only YOLOv8 and YOLO11 models are supported. Please check the model path or format.")
+
                 
         except FileNotFoundError:
             raise ValueError(f"YAML configuration file not found: {yaml_path}")
@@ -88,39 +88,6 @@ class SegmentInference(BaseInference):
             
         # Perform inference using ONNX Runtime
         raw_outputs = self.session.run(None, {self.input_name: input_data})
-        results_0 = raw_outputs[0]
-        
-        # Debug section - commented out for production use
-        # This section analyzes the model output structure and saves to CSV
-        # Useful for understanding model output format and debugging
-        """
-        import pandas as pd
-        batch_size = results_0.shape[0]
-        num_features = results_0.shape[1]   
-        num_proposals = results_0.shape[2]
-        
-        # Transpose output from (1, 116, 2100) to (1, 2100, 116)
-        transposed_output = results_0.transpose(0, 2, 1)  # (1, 2100, 116)
-        proposals = transposed_output.squeeze(0)  # (2100, 116)
-        print(f"Processed dimensions: {proposals.shape}")
-
-        # Set column names for analysis
-        box_columns = ["box_x", "box_y", "box_w", "box_h"]
-        feature_columns = [f"f_{i}" for i in range(4, num_features)]
-        all_columns = box_columns + feature_columns
-
-        # Convert to DataFrame for analysis
-        df = pd.DataFrame(proposals, columns=all_columns)
-        
-        # Find maximum value in class confidence columns (f_4 to f_84)
-        max_value = df.iloc[0, 4:84].max()
-        print("Max confidence value:", max_value)
-
-        # Save analysis results to CSV
-        output_file = "segmentation_output_analysis.csv"
-        df.to_csv(output_file, index=False, encoding="utf-8-sig")
-        print(f"✅ Analysis saved to {output_file}, shape: {df.shape}")
-        """
         
         # Postprocess raw outputs to generate final segmentation results
         results = self.postprocess(raw_outputs, (orig_h, orig_w))
@@ -223,9 +190,9 @@ class SegmentInference(BaseInference):
         # Parse model outputs
         detections = np.squeeze(raw_outputs[0]).T  # Shape: (num_dets, 4+1+num_classes+num_masks)
         mask_prototypes = np.squeeze(raw_outputs[1], axis=0)  # Shape: (num_masks, mask_h, mask_w)
-        
+        # test_mask = detections.shape[1] - 4 - self.num_classes
         # Debug information for understanding output structure
-        # print(f"Detections shape: {detections.shape}")  # (N, 4+1+nc+nm)
+        # print(f"test_mask: {test_mask}")  # (N, 4+1+nc+nm)
         # print(f"Sample detection row: {detections[0, :10]}")  # First 10 values
         # print(f"Number of classes: {self.num_classes}")
         
