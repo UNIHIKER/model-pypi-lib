@@ -75,8 +75,8 @@ class ImageClassificationInference(BaseInference):
         # Extract probabilities from first batch item
         probs = raw_output[0]
         
-        # Apply softmax to convert logits to probabilities
-        probs = np.exp(probs) / np.sum(np.exp(probs))
+        # # Apply softmax to convert logits to probabilities
+        # probs = np.exp(probs) / np.sum(np.exp(probs))
 
         # Create result entry for each class
         for class_id, prob in enumerate(probs):
