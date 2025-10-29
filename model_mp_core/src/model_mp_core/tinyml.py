@@ -65,7 +65,7 @@ class TinyMLInference:
     def __init__(self,
                  onnx_model_path: str,
                  onnx_yaml_path: str,
-                 step_size: int = 4):         
+                 step_size: int = 1):         
         self.onnx_model_path = onnx_model_path
         self.onnx_yaml_path = onnx_yaml_path
 
