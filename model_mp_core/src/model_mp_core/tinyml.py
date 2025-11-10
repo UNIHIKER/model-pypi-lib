@@ -12,6 +12,13 @@ class RingBufferTrigger:
                  use_data_dot: int,
                  model_input_axes_count: int,
                  step_size: int):
+        """Initialize the RingBufferTrigger.
+
+        Args:
+            use_data_dot (int): Number of data points to use.
+            model_input_axes_count (int): Number of input axes.
+            step_size (int): Step size for sliding window.
+        """
         self.USE_DATA_DOT = use_data_dot
         self.MODEL_INPUT_AXES_COUNT = model_input_axes_count
         self.step_size = step_size
@@ -24,6 +31,14 @@ class RingBufferTrigger:
         self.step_counter = 0  
 
     def add_xyz_str(self, value: str) -> bool:
+        """Add a comma-separated string of values to the buffer.
+
+        Args:
+            value (str): Comma-separated string of float values.
+
+        Returns:
+            bool: True if successfully added, False otherwise.
+        """
         if not value.strip():
             return False
         try:
@@ -42,16 +57,27 @@ class RingBufferTrigger:
         self.step_counter += 1
         return True
 
-    # ------------- 触发条件 -------------
+    # ------------- Trigger condition -------------
     def has_enough(self) -> bool:
+        """Check if there is enough data in the buffer for inference.
+
+        Returns:
+            bool: True if buffer is full and step counter meets threshold.
+        """
         return self.buffer_full and self.step_counter >= self.step_size
 
-    # ------------- 获取当前窗口 -------------
+    # ------------- Get current window -------------
     def get_buffer(self) -> np.ndarray:
+        """Get the current buffer as a numpy array.
+
+        Returns:
+            np.ndarray: The buffer data as float32 array.
+        """
         return np.array(self.buffer, dtype=np.float32)
 
-    # ------------- 滑动窗口 -------------
+    # ------------- Sliding window -------------
     def slide(self):
+        """Slide the buffer by discarding old data and updating counters."""
         discard_len = self.step_size * self.MODEL_INPUT_AXES_COUNT
         if len(self.buffer) >= discard_len:
             for _ in range(discard_len):
@@ -66,6 +92,13 @@ class TinyMLInference:
                  onnx_model_path: str,
                  onnx_yaml_path: str,
                  step_size: int = 1):         
+        """Initialize the TinyMLInference.
+
+        Args:
+            onnx_model_path (str): Path to the ONNX model file.
+            onnx_yaml_path (str): Path to the YAML configuration file.
+            step_size (int, optional): Step size for buffer sliding. Defaults to 1.
+        """
         self.onnx_model_path = onnx_model_path
         self.onnx_yaml_path = onnx_yaml_path
 
@@ -85,21 +118,26 @@ class TinyMLInference:
 
 
     def _load_yaml_config(self):
+        """Load configuration from the YAML file."""
         with open(self.onnx_yaml_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         self.model_name = config.get('base_model', None)
-        data_settings = config.get('data_settings', {})
+    # Load config directly from top-level; no longer from data_settings
         flatten_cfg = config.get('preprocess_setting_default', {}).get('Flatten', {})
         analysis_cfg = config.get('preprocess_setting_default', {}).get('Analysis', {})
         filter_cfg = config.get('preprocess_setting_default', {}).get('Filter', {})
         scaler_params = config.get('scaler_params', {})
 
+    # Get labels and convert to list format
+        labels = config.get('labels', {})
+        output_class = [labels[key] for key in sorted(labels.keys())] if labels else []
+
         self.data_settings = DataSettings(
-            input_axes=data_settings.get('input_axes', []),
-            output_class=data_settings.get('output_class', []),
-            use_data_dot=data_settings.get('use_data_dot'),
-            time_interval=data_settings.get('time_interval')
+            input_axes=config.get('input_axes', []),
+            output_class=output_class,
+            use_data_dot=config.get('use_data_dot'),
+            time_interval=config.get('time_interval')
         )
 
         flatten_set = FlattenSettings(**flatten_cfg)
@@ -115,8 +153,16 @@ class TinyMLInference:
 
 
     def inference(self, xyz_str: str) -> Dict:
+        """Perform inference on the input data string.
+
+        Args:
+            xyz_str (str): Comma-separated string of input values.
+
+        Returns:
+            Dict: Inference result or error/status message.
+        """
         if not self.buffer.add_xyz_str(xyz_str):
-            return {"error": "输入数据格式错误，每个数值之间用逗号分隔"}
+            return {"error": "Invalid input data format; values must be comma-separated"}
 
         raw = self.buffer.get_buffer()  
 
@@ -130,17 +176,25 @@ class TinyMLInference:
         return result
 
     def one_data_preprocess(self, data):
+        """Preprocess a single data item.
+
+        Args:
+            data: The input data to preprocess.
+
+        Returns:
+            np.ndarray: Preprocessed data array.
+        """
         data = [DataItem(data=data, label="unknown")]
         processed = preprocess(data, self.data_settings, self.preprocess_settings)
         X = np.array([d.data for d in processed], dtype=np.float32)
 
         if self.mean is None or self.scale is None:
-            print("警告：scaler_params中缺少'mean'或'scale'字段，跳过标准化")
+            print("Warning: 'mean' or 'scale' missing in scaler_params; skipping normalization")
         else:
             self.mean = np.array(self.mean)
             self.scale = np.array(self.scale)
             if self.mean.shape[0] != X.shape[1] or self.scale.shape[0] != X.shape[1]:
-                raise ValueError("标准化参数维度与特征维度不匹配")
+                raise ValueError("Normalization parameter dimensions do not match feature dimensions")
             if np.any(self.scale == 0):
                 self.scale = np.where(self.scale == 0, 1e-8, self.scale)
             X = (X - self.mean) / self.scale
@@ -148,7 +202,14 @@ class TinyMLInference:
         return X
 
     def _inference(self, input_data):
+        """Run inference on preprocessed data.
 
+        Args:
+            input_data: The input data for inference.
+
+        Returns:
+            Dict: Inference results with model name and sorted class probabilities.
+        """
         X = self.one_data_preprocess(input_data)
         outputs = self.session.run([self.output_name], {self.input_name: X})
         logits = outputs[0][0]
@@ -170,5 +231,13 @@ class TinyMLInference:
         return {"model": self.model_name, "result": results}
 
     def _softmax(self, x):
+        """Compute softmax probabilities.
+
+        Args:
+            x: Input logits.
+
+        Returns:
+            np.ndarray: Softmax probabilities.
+        """
         e_x = np.exp(x - np.max(x))
         return e_x / e_x.sum()
