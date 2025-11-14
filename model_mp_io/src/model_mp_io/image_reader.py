@@ -23,9 +23,11 @@ class ImageReader:
         """
         self.source = source
         self.cap = None
-        self.is_image = False    # Flag for static image mode
-        self.is_camera = False   # Flag for camera device mode
-        self.image_data = None   # Storage for static image data
+        self.is_image = False
+        self.is_camera = False
+        self.is_rtsp = False
+        self.is_video_file = False
+        self.image_data = None
         self.open_source()
 
     def open_source(self):
@@ -51,6 +53,8 @@ class ImageReader:
                 print(f"[INFO] Camera {self.source} opened successfully")
                 self.is_image = False
                 self.is_camera = True
+                self.is_rtsp = False
+                self.is_video_file = False
             else:
                 print(f"[WARN] Failed to open camera {self.source}")
         else:
@@ -61,6 +65,8 @@ class ImageReader:
                     print(f"[INFO] RTSP stream {self.source} opened successfully")
                     self.is_image = False
                     self.is_camera = False
+                    self.is_rtsp = True
+                    self.is_video_file = False
                 else:
                     raise ValueError(f"Failed to open RTSP stream: {self.source}")
                 return
@@ -80,6 +86,8 @@ class ImageReader:
                     raise ValueError(f"Failed to read image: {self.source}")
                 self.is_image = True
                 self.is_camera = False
+                self.is_rtsp = False
+                self.is_video_file = False
                 self.cap = None
                 print(f"[INFO] Image file {self.source} loaded successfully")
             else:
@@ -93,6 +101,8 @@ class ImageReader:
                     print(f"[INFO] Video file {self.source}: {total_frames} frames at {fps} FPS, resolution {width}x{height}")
                     self.is_image = False
                     self.is_camera = False
+                    self.is_rtsp = False
+                    self.is_video_file = True
                 else:
                     raise ValueError(f"Failed to open file: {self.source} - not a valid video or image file")
 
@@ -171,11 +181,17 @@ class ImageReader:
             
         ret, frame = self.cap.read()
         if not ret:
-            # if video file ends, return None
-            if not self.is_camera:  
-                raise RuntimeError("End of video file reached")
-            else:
+            if self.is_video_file:
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = self.cap.read()
+                if not ret:
+                    raise RuntimeError("Failed to read frame after rewind")
+                return frame
+            if self.is_camera:
                 raise RuntimeError("Failed to capture frame from camera")
+            if self.is_rtsp:
+                raise RuntimeError("Failed to capture frame from RTSP stream")
+            raise RuntimeError("Failed to capture frame")
             
         return frame
 

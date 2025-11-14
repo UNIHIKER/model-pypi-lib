@@ -167,7 +167,8 @@ class TinyMLInference:
         raw = self.buffer.get_buffer()  
 
         if not self.buffer.has_enough():
-            return {"status": "waiting data"}
+            print("Not enough data in buffer for inference.")
+            return {"model": self.model_name, "result": []}
 
         result = self._inference(raw)
 
