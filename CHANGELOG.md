@@ -32,7 +32,7 @@
 ## 0.1.0    2025-11-11
 
 - 优化txt_reader对输入的格式验证
-- 更新txt_reader和image_reader末尾循环读取
+- 更新txt_reader文本和image_reader视频末尾循环读取
 
 ## 0.0.9    2025-11-10
 
