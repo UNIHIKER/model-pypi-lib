@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "model-mp-core"
-version = "0.1.2"
+version = "0.1.3"
 authors = [
   { name="unihiker Team", email="unihiker@dfrobot.com" },
 ]
@@ -23,10 +23,14 @@ classifiers = [
     "Topic :: Education"
 ]
 dependencies = [
-    "numpy>=1.19.0",
-    "opencv-python>=4.5.0",
-    "pillow>=8.0.0",
-    "onnxruntime>=1.8.0"
+    'numpy>=1.19.0',
+    'opencv-python>=4.5.0',
+    'pillow>=8.0.0',
+    'onnxruntime>=1.8.0',
+    'pyyaml>=5.1.0',
+    "scikit-learn >=1.7.1",
+    "pydantic>=2.12.3",
+    "scipy>=1.16.2"
 ]
 
 [project.urls]

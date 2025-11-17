@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="model-mp-core",
-    version="0.1.2",
+    version="0.1.3",
     author="unihiker Team",
     author_email="unihiker@dfrobot.com",
     description="Core inference library for Mind+ model training tool",
@@ -37,7 +37,10 @@ setuptools.setup(
         'opencv-python>=4.5.0',
         'pillow>=8.0.0',
         'onnxruntime>=1.8.0',
-        'pyyaml>=5.1.0'
+        'pyyaml>=5.1.0',
+        "scikit-learn >=1.7.1",
+        "pydantic>=2.12.3",
+        "scipy>=1.16.2"
     ],
     python_requires=">=3.7",
 )

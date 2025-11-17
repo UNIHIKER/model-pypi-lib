@@ -86,9 +86,26 @@ class PreprocessSettings(BaseModel):
     Filter: FilterSettings
 # ================ PREPROCESSING IMPLEMENTATION FUNCTIONS ================
 
-# ---------------- 各功能实现 -----------------
-
 def normalize_axis_length(data: np.ndarray, target_len: int, flatten_cfg: FlattenSettings) -> np.ndarray:
+    """
+    Normalize the length of input data to match the target length.
+    
+    This function ensures that the input data array has exactly the specified
+    target length by either truncating or padding the data as needed.
+    
+    Args:
+        data (np.ndarray): Input data array to normalize
+        target_len (int): Target length for the output array
+        flatten_cfg (FlattenSettings): Configuration settings containing padding options
+        
+    Returns:
+        np.ndarray: Array with length equal to target_len
+        
+    Note:
+        - If data is longer than target_len, it will be truncated
+        - If data is shorter than target_len, it will be padded with fill_value
+        - Fill value is determined by flatten_cfg settings
+    """
     if len(data) > target_len:
         return data[:target_len]
     elif len(data) < target_len:
@@ -97,6 +114,25 @@ def normalize_axis_length(data: np.ndarray, target_len: int, flatten_cfg: Flatte
     return data
 
 def apply_filter_to_axis(data: np.ndarray, fcfg: FilterSettings) -> np.ndarray:
+    """
+    Apply Butterworth digital filter to input signal data.
+    
+    This function applies a low-pass or high-pass Butterworth filter to the input
+    signal using the specified filter configuration parameters.
+    
+    Args:
+        data (np.ndarray): Input signal data to be filtered
+        fcfg (FilterSettings): Filter configuration containing filter parameters
+                              including cutoff frequency, filter order, and type
+        
+    Returns:
+        np.ndarray: Filtered signal data with the same shape as input
+        
+    Note:
+        - Uses second-order sections (SOS) format for numerical stability
+        - Cutoff frequency is normalized against Nyquist frequency
+        - Supports both low-pass and high-pass filtering
+    """
     nyquist = fcfg.fs / 2
     if 0 < fcfg.Wn < nyquist:
         cutoff = fcfg.Wn / nyquist
@@ -107,6 +143,30 @@ def apply_filter_to_axis(data: np.ndarray, fcfg: FilterSettings) -> np.ndarray:
     return signal.sosfilt(sos, data)
 
 def apply_analysis_to_axis(data: np.ndarray, acfg: AnalysisSettings, target_length: int) -> np.ndarray:
+    """
+    Apply frequency domain analysis transformations to signal data.
+    
+    This function performs various frequency domain analyses including Short-Time
+    Fourier Transform (STFT), Fast Fourier Transform (FFT), or Real FFT based
+    on the analysis configuration settings.
+    
+    Args:
+        data (np.ndarray): Input time-domain signal data
+        acfg (AnalysisSettings): Analysis configuration specifying which transform to apply
+        target_length (int): Expected length of input data for validation
+        
+    Returns:
+        np.ndarray: Transformed data in frequency domain or original data if no analysis
+        
+    Raises:
+        ValueError: If analysis parameters are invalid relative to target_length
+        
+    Note:
+        - STFT returns flattened magnitude spectrogram
+        - FFT returns magnitude spectrum
+        - RFFT returns magnitude of real-valued FFT with fixed size of 32
+        - Validates parameter constraints before processing
+    """
 
     if acfg.stft:
         if acfg.nperseg > target_length:
@@ -128,18 +188,39 @@ def apply_analysis_to_axis(data: np.ndarray, acfg: AnalysisSettings, target_leng
         return np.abs(fft(data, n=acfg.n))
 
     elif acfg.rfft:
-        # rfft 的 n 不需要显式指定，但可以限制 data 长度
+
         return np.abs(rfft(data,32))
 
     return data
 
 def apply_flatten_to_axis(data: np.ndarray, fcfg: FlattenSettings) -> np.ndarray:
+    """
+    Apply comprehensive data preprocessing and feature extraction to signal data.
+    
+    This function applies a pipeline of data preprocessing steps including imputation,
+    scaling, normalization, discretization, feature transformation, and statistical
+    feature extraction based on the provided configuration settings.
+    
+    Args:
+        data (np.ndarray): Input signal data to be processed
+        fcfg (FlattenSettings): Configuration settings specifying which preprocessing
+                               steps to apply and their parameters
+        
+    Returns:
+        np.ndarray: Processed feature vector, either transformed raw data or
+                   statistical features depending on configuration
+        
+    Note:
+        - Applies preprocessing steps in a specific order for optimal results
+        - Only one scaler is applied even if multiple are enabled (priority order)
+        - Statistical features are computed if any stat option is enabled
+        - Returns flattened array suitable for machine learning models
+    """
     x = data.reshape(1, -1)
 
     if fcfg.SimpleImputer:
         x = SimpleImputer(strategy=fcfg.strategy, fill_value=fcfg.fill_value).fit_transform(x)
     
-    # 只启用第一个缩放器
     scaler_applied = False
     if not scaler_applied and fcfg.StandardScaler:
         x = StandardScaler().fit_transform(x)
@@ -171,7 +252,6 @@ def apply_flatten_to_axis(data: np.ndarray, fcfg: FlattenSettings) -> np.ndarray
 
     x = x.flatten()
 
-    # 判断是否启用任意统计特征
     stats_enabled = any([
         fcfg.average, fcfg.min, fcfg.max, fcfg.std, fcfg.rms,
         fcfg.skew, fcfg.kurtosis, fcfg.slope, fcfg.var,
@@ -197,15 +277,44 @@ def apply_flatten_to_axis(data: np.ndarray, fcfg: FlattenSettings) -> np.ndarray
 
     return x
 
-# ---------------- 预处理主流程 -----------------
 
 def preprocess(data_list: List[DataItem], 
                data_settings: DataSettings, 
                preprocess_settings: PreprocessSettings) -> List[DataItem]:
-    # from utils.logger import app_logger
-    # app_logger.info(f"[preprocess] data_settings: {data_settings}")
-    # app_logger.info(f"[preprocess] preprocess_settings: {preprocess_settings}")
+    """
+    Apply comprehensive preprocessing pipeline to multi-axis sensor data.
     
+    This is the main preprocessing function that applies a complete data processing
+    pipeline including filtering, frequency analysis, and feature extraction to
+    multi-dimensional sensor data (e.g., accelerometer, gyroscope data with x,y,z axes).
+    
+    Args:
+        data_list (List[DataItem]): List of data items containing raw sensor data
+                                   and corresponding labels
+        data_settings (DataSettings): Configuration for data structure including
+                                     input axes, output classes, and data dimensions
+        preprocess_settings (PreprocessSettings): Complete preprocessing configuration
+                                                  including filter, analysis, and flatten settings
+        
+    Returns:
+        List[DataItem]: List of processed data items with transformed features
+                       maintaining original labels
+        
+    Processing Pipeline:
+        1. Normalize raw data length to match expected dimensions
+        2. Reshape data to separate individual axes (x, y, z, etc.)
+        3. For each axis independently:
+           - Normalize axis data length
+           - Apply filtering (if enabled)
+           - Apply frequency analysis (if enabled)  
+           - Apply feature extraction/flattening (if enabled)
+        4. Combine processed axes into final feature vector
+        
+    Note:
+        - Maintains data order and labels throughout processing
+        - Each axis is processed independently then recombined
+        - Final output is flattened for machine learning compatibility
+    """
     processed_data = []
     num_axes = len(data_settings.input_axes)
     target_length = data_settings.use_data_dot
@@ -213,42 +322,32 @@ def preprocess(data_list: List[DataItem],
     for idx, item in enumerate(data_list):
         raw = np.array(item.data, dtype=np.float32)
         
-        # 先保证总长度一致（各轴点数 * 轴数）
         expected_len = target_length * num_axes
         raw = normalize_axis_length(raw, expected_len, preprocess_settings.Flatten)
 
-        # 按轴分割数据 shape (num_axes, target_length)
+
         reshaped = raw.reshape(-1, num_axes).T  
-        # print("reshaped:")
-        # print(reshaped.shape)
-        # print(reshaped[:3])
-        
+
         transformed_axes = []
         for axis_data in reshaped:
-            # 确保每轴长度一致
+
             axis_data = normalize_axis_length(axis_data, target_length, preprocess_settings.Flatten)
 
             if preprocess_settings.Filter.enabled:
                 axis_data = apply_filter_to_axis(axis_data, preprocess_settings.Filter)
-                # print("filter axis_data:")
-                # print(axis_data.shape)
-                # print(axis_data[:3])
+
 
             if preprocess_settings.Analysis.enabled:
                 axis_data = apply_analysis_to_axis(axis_data, preprocess_settings.Analysis, target_length)
-                # print("Analysis axis_data:")
-                # print(axis_data.shape)
-                # print(axis_data[:3])
+
 
             if preprocess_settings.Flatten.enabled:
                 axis_data = apply_flatten_to_axis(axis_data, preprocess_settings.Flatten)
-                # print("Flatten axis_data:")
-                # print(axis_data.shape)
-                # print(axis_data[:3])
+
 
             transformed_axes.append(axis_data)
 
-        # 多轴结果拼接成一维向量
+
         final = np.stack(transformed_axes, axis=1).reshape(-1)
         processed_data.append(DataItem(data=final.tolist(), label=item.label))
 
