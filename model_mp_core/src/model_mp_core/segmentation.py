@@ -300,7 +300,7 @@ class SegmentInference(BaseInference):
         for i in range(len(final_boxes)):
             results.append({
                 "bbox": final_boxes[i],
-                "score": final_scores[i],
+                "score": float(np.round(final_scores[i], 4)),
                 "class_id": final_class_ids[i],
                 "class_name": self.class_names[final_class_ids[i]],
                 "mask": final_masks[i],

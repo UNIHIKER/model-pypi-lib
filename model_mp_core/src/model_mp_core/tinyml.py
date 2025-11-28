@@ -224,7 +224,7 @@ class TinyMLInference:
             class_name = self.class_names.get(class_id, str(class_id))
             results.append({"class_id": class_id,
                             "class_name": class_name,
-                            "score": float(prob)})
+                            "score": float(np.round(float(prob), 4))})
         results.sort(key=lambda x: x["score"], reverse=True)
         for idx, r in enumerate(results):
             r["result_id"] = idx

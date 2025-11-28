@@ -89,6 +89,8 @@ class IO_Windows:
             success = window_mgr.show(camera_frame, "Live Feed")
         """
         # Display image with error checking
+        if window_name not in self.windows:
+            return False
         if frame is None:
             return False
         if cv2.imshow(window_name, frame) == -1:
@@ -140,5 +142,8 @@ class IO_Windows:
         Example:
             window_mgr.set_size("Main View", 1280, 720)  # Set to 720p
         """
+        if window_name not in self.windows:
+            return False
         cv2.resizeWindow(window_name, width, height)
+        return True
 

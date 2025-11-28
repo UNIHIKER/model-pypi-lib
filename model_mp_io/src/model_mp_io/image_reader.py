@@ -28,6 +28,8 @@ class ImageReader:
         self.is_rtsp = False
         self.is_video_file = False
         self.image_data = None
+        self.set_width = None    
+        self.set_height = None
         self.open_source()
 
     def open_source(self):
@@ -49,6 +51,8 @@ class ImageReader:
         if isinstance(self.source, int):
             # Camera device initialization
             self.cap = cv2.VideoCapture(self.source)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
             if self.cap.isOpened():
                 print(f"[INFO] Camera {self.source} opened successfully")
                 self.is_image = False
@@ -111,8 +115,6 @@ class ImageReader:
         Configure video capture resolution.
         
         Sets the resolution for camera and video file sources.
-        Not applicable to static image sources.
-        
         Args:
             width (int): Target frame width in pixels
             height (int): Target frame height in pixels
@@ -122,15 +124,9 @@ class ImageReader:
             - Video files will be scaled to the requested resolution
             - Static images are not affected by this setting
         """
-        # Check if source is a static image
-        if hasattr(self, 'is_image') and self.is_image:
-            print(f"[WARN] Cannot set resolution for static image: {self.source}")
-            return
         
-        if self.cap is not None:
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            print(f"[INFO] Resolution configured to {width}x{height}")
+        self.set_width = width
+        self.set_height = height
 
     def release(self):
         """
@@ -171,7 +167,9 @@ class ImageReader:
         if hasattr(self, 'is_image') and self.is_image:
             if hasattr(self, 'image_data') and self.image_data is not None:
                 # Return a copy to prevent external modification of internal data
-                return self.image_data.copy()
+                if self.set_width and self.set_height:
+                    img = cv2.resize(self.image_data, (self.set_width, self.set_height))
+                    return img
             else:
                 raise RuntimeError("Image data not loaded")
         
@@ -192,8 +190,18 @@ class ImageReader:
             if self.is_rtsp:
                 raise RuntimeError("Failed to capture frame from RTSP stream")
             raise RuntimeError("Failed to capture frame")
-            
+        
+        if self.set_width and self.set_height:
+            if self.is_camera:
+                h, w, c = frame.shape
+                w1 = int(h*self.set_width//self.set_height)
+                x1 = (w-w1)//2
+                frame = frame[:, x1:x1+w1] 
+                frame = cv2.resize(frame, (self.set_width, self.set_height))
+            if self.is_video_file or self.is_rtsp:
+                frame = cv2.resize(frame, (self.set_width, self.set_height))
         return frame
+
 
 
 

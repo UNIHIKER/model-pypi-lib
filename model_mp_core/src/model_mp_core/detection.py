@@ -202,7 +202,7 @@ class ObjectDetectionInference(BaseInference):
                 "bbox": bbox_xyxy,
                 "class_id": cls_id,
                 "class_name": self.class_names[cls_id],
-                "score": float(scores_list[i]),
+                "score": float(np.round(scores_list[i], 4)),
                 "result_id": det_idx,
             })
             

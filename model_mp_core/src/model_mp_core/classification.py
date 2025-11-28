@@ -90,7 +90,7 @@ class ImageClassificationInference(BaseInference):
             results.append({
                 "class_id": class_id,
                 "class_name": class_name,
-                "score": float(prob),
+                "score":  float(np.round(float(prob), 4)),
             })
 
         # Sort results by confidence score in descending order
