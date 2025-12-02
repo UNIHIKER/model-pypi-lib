@@ -87,6 +87,12 @@ class RingBufferTrigger:
         if len(self.buffer) < self.buf_max:
             self.buffer_full = False
 
+    def reset(self):
+        """Reset the buffer and counters."""
+        self.buffer.clear()
+        self.buffer_full = False
+        self.step_counter = 0
+
 class TinyMLInference:
     def __init__(self,
                  onnx_model_path: str,
