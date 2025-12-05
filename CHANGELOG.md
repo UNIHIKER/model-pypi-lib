@@ -1,5 +1,7 @@
 # model_mp_core
-## 0.1.5    2025-1202
+## 0.1.6 2025-12-3
+-修改segmentation类输出的segmentation results，新增每个id的area(Pixel areaof the mask(calculated as the sum of mask pixels)), mask coords (list):List of [x,y]coordinates defining the mask contour)
+## 0.1.5    2025-12-02
 - Tinyml添加重置缓冲区的方法。
 ## 0.1.4    2025-11-26
 - 修改置信度输出位数
@@ -35,6 +37,10 @@
 
 
 # model_mp_io
+## 0.1.2    2025-12-3
+
+- 修改image_writer，新增save_masked_image函数，功能为根据掩码抠图并保存图像。
+
 ## 0.1.1    2025-11-26
 
 - 修改image_reader分辨率设置

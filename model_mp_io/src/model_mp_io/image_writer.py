@@ -142,6 +142,84 @@ class ImageWriter:
             return self.draw_segmentation(image, output, self.font_file)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+        
+    def get_masked_image(
+        self,
+        segmentation_results: Dict[str, Any], 
+        original_image: np.ndarray, 
+        id: int = -1,
+        mode: bool = True,
+    ):
+        """
+        Extract masked image based on segmentation masks.
+        
+        Args:
+            segmentation_results: Dictionary containing 'result' key, where 'result' is a list of instances, each containing 'mask' key.
+            original_image: Original image as NumPy array (H, W, 3).
+            id: -1 means extract all instances (merge all masks), >=0 means process only the id-th instance.
+            mode: Masking mode.
+                True: Keep instances (mask regions preserved with transparent background)
+                False: Remove instances (mask regions become black, background preserved)
+        """
+        if 'result' not in segmentation_results:
+            raise ValueError("segmentation_results must contain 'result' key")
+
+        results = segmentation_results['result']
+        
+        if not results:
+            print("[WARN] No segmentation results found.")
+            return
+
+        # Initialize final mask
+        combined_mask = None
+
+        if id == -1:
+            # Merge all instance masks
+            h, w = original_image.shape[:2]
+            combined_mask = np.zeros((h, w), dtype=bool)
+            for instance in results:
+                mask = instance.get("mask")
+                if mask is not None:
+                    # Ensure mask shape matches
+                    if mask.shape != (h, w):
+                        mask = cv2.resize(mask.astype(np.float32), (w, h), interpolation=cv2.INTER_NEAREST)
+                    combined_mask |= (mask > 0.5)
+        else:
+            # Process only the specified id instance
+            if id < 0 or id >= len(results):
+                raise IndexError(f"Instance id {id} out of range [0, {len(results)-1}]")
+            mask = results[id].get("mask")
+            if mask is None:
+                raise ValueError(f"No mask found for instance id {id}")
+            h, w = original_image.shape[:2]
+            if mask.shape != (h, w):
+                mask = cv2.resize(mask.astype(np.float32), (w, h), interpolation=cv2.INTER_NEAREST)
+            combined_mask = (mask > 0.5)
+
+        if combined_mask is None:
+            print("[WARN] No valid mask generated.")
+            return
+
+        # Expand to 3 channels
+        mask_3channel = np.stack([combined_mask] * 3, axis=-1)
+        black_background = np.zeros_like(original_image, dtype=original_image.dtype)
+
+        if mode:
+            # Keep instances with transparent background
+            h, w = original_image.shape[:2]
+            # Create RGBA image
+            masked_image = np.zeros((h, w, 4), dtype=np.uint8)
+            # Copy RGB of instance regions
+            masked_image[..., :3][mask_3channel] = original_image[mask_3channel]
+            # Instance region alpha=255, other regions alpha=0
+            masked_image[..., 3][combined_mask] = 255
+            # Non-instance region alpha=0 (already initialized to 0)
+
+        else:
+            # Remove instances with black background
+            masked_image = np.where(~mask_3channel, original_image, black_background)
+        return masked_image
+
 
     def draw_text_with_bg(self, img, text, pos=(10, 30), font_file=None, font_size=30,
                           text_color=(255, 255, 255), bg_color=(0, 0, 0), padding=5):

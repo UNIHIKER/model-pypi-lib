@@ -170,6 +170,7 @@ class ImageReader:
                 if self.set_width and self.set_height:
                     img = cv2.resize(self.image_data, (self.set_width, self.set_height))
                     return img
+                return self.image_data.copy()
             else:
                 raise RuntimeError("Image data not loaded")
         

@@ -186,6 +186,8 @@ class SegmentInference(BaseInference):
                     - score (float): Detection confidence score [0, 1]
                     - mask (np.ndarray): Segmentation mask (H, W) with values [0, 1]
                     - result_id (int): Detection index in final results
+                    - area (int): Pixel area of the mask (calculated as the sum of mask pixels)
+                    - mask_coords (list): List of [x, y] coordinates defining the mask contour
         """
         # Parse model outputs
         detections = np.squeeze(raw_outputs[0]).T  # Shape: (num_dets, 4+1+num_classes+num_masks)
@@ -298,13 +300,28 @@ class SegmentInference(BaseInference):
         # Format final results
         results = []
         for i in range(len(final_boxes)):
+            # Calculate mask area and contours
+            mask = final_masks[i]
+            mask_bin = (mask > 0.5).astype(np.uint8)
+            area = int(np.sum(mask_bin))
+            
+            # Get mask coordinates (contours)
+            contours, _ = cv2.findContours(mask_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            mask_coords = []
+            if contours:
+                # Take the largest contour
+                c = max(contours, key=cv2.contourArea)
+                mask_coords = c.reshape(-1, 2).tolist()
+
             results.append({
                 "bbox": final_boxes[i],
                 "score": float(np.round(final_scores[i], 4)),
                 "class_id": final_class_ids[i],
                 "class_name": self.class_names[final_class_ids[i]],
-                "mask": final_masks[i],
-                "result_id": i
+                "mask": mask,
+                "result_id": i,
+                "area": area,
+                "mask_coords": mask_coords
             })
             
         # Sort results by confidence score in descending order
