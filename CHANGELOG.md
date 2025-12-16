@@ -37,6 +37,10 @@
 
 
 # model_mp_io
+## 0.1.3    2025-12-10
+
+- 修改image_writer中save_masked_image函数，功能为根据检测框中的掩码，抠图并返回img。
+
 ## 0.1.2    2025-12-3
 
 - 修改image_writer，新增save_masked_image函数，功能为根据掩码抠图并保存图像。

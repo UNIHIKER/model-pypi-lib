@@ -142,7 +142,7 @@ class ImageWriter:
             return self.draw_segmentation(image, output, self.font_file)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
-        
+
     def get_masked_image(
         self,
         segmentation_results: Dict[str, Any], 
@@ -151,10 +151,11 @@ class ImageWriter:
         mode: bool = True,
     ):
         """
-        Extract masked image based on segmentation masks.
+        Extract masked image based on segmentation masks AND bounding box.
         
         Args:
-            segmentation_results: Dictionary containing 'result' key, where 'result' is a list of instances, each containing 'mask' key.
+            segmentation_results: Dictionary containing 'result', where 'result' is a list of instances, 
+                                  each containing 'mask' (H, W) and 'bbox' ([x1, y1, x2, y2]).
             original_image: Original image as NumPy array (H, W, 3).
             id: -1 means extract all instances (merge all masks), >=0 means process only the id-th instance.
             mode: Masking mode.
@@ -170,54 +171,80 @@ class ImageWriter:
             print("[WARN] No segmentation results found.")
             return
 
-        # Initialize final mask
-        combined_mask = None
+        h, w = original_image.shape[:2]
+        # 统一初始化一个最终的合并掩膜，用于控制哪个像素被保留
+        combined_mask_bool = np.zeros((h, w), dtype=bool)
 
+        instances_to_process = []
         if id == -1:
-            # Merge all instance masks
-            h, w = original_image.shape[:2]
-            combined_mask = np.zeros((h, w), dtype=bool)
-            for instance in results:
-                mask = instance.get("mask")
-                if mask is not None:
-                    # Ensure mask shape matches
-                    if mask.shape != (h, w):
-                        mask = cv2.resize(mask.astype(np.float32), (w, h), interpolation=cv2.INTER_NEAREST)
-                    combined_mask |= (mask > 0.5)
+            # 处理所有实例
+            instances_to_process = results
         else:
-            # Process only the specified id instance
+            # 只处理指定 ID 的实例
             if id < 0 or id >= len(results):
                 raise IndexError(f"Instance id {id} out of range [0, {len(results)-1}]")
-            mask = results[id].get("mask")
-            if mask is None:
-                raise ValueError(f"No mask found for instance id {id}")
-            h, w = original_image.shape[:2]
+            instances_to_process = [results[id]]
+
+        # 遍历需要处理的实例，合并它们的掩膜和边界框限制
+        for instance in instances_to_process:
+            mask = instance.get("mask")
+            bbox = instance.get("bbox") # [x1, y1, x2, y2]
+            
+            if mask is None or bbox is None:
+                print(f"[WARN] Instance missing mask or bbox, skipping.")
+                continue
+
+            # 1. 确保掩膜形状匹配 (此逻辑保留)
             if mask.shape != (h, w):
                 mask = cv2.resize(mask.astype(np.float32), (w, h), interpolation=cv2.INTER_NEAREST)
-            combined_mask = (mask > 0.5)
+            
+            # 将浮点掩膜转换为布尔掩膜
+            instance_mask = (mask > 0.5)
 
-        if combined_mask is None:
-            print("[WARN] No valid mask generated.")
-            return
+            # --- 关键修改点：结合 BBOX 限制掩膜 ---
+            
+            # 2. 创建一个基于 BBOX 的矩形区域掩膜
+            x1, y1, x2, y2 = map(int, bbox)
+            
+            # 确保坐标在图像范围内
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            
+            # 创建一个全图大小的 Bbox 限制掩膜
+            bbox_mask = np.zeros((h, w), dtype=bool)
+            # 在 Bbox 区域内设置为 True
+            if x2 > x1 and y2 > y1:
+                 bbox_mask[y1:y2, x1:x2] = True
+            
+            # 3. 最终的有效掩膜 = 实例掩膜 AND Bbox 掩膜
+            # 只有在 Bbox 内部且被原始 Mask 覆盖的像素才被激活
+            effective_mask = instance_mask & bbox_mask
+            
+            # 4. 合并到总的掩膜中（使用逻辑 OR）
+            combined_mask_bool |= effective_mask
 
-        # Expand to 3 channels
-        mask_3channel = np.stack([combined_mask] * 3, axis=-1)
+        # --- 应用最终的抠图/移除逻辑 ---
+        
+        if not np.any(combined_mask_bool):
+            print("[WARN] Combined mask is empty after Bbox-clipping.")
+            return original_image # 返回原图或 None，这里选择返回原图作为备选
+
+        # 扩展到 3 通道
+        mask_3channel = np.stack([combined_mask_bool] * 3, axis=-1)
         black_background = np.zeros_like(original_image, dtype=original_image.dtype)
 
         if mode:
-            # Keep instances with transparent background
-            h, w = original_image.shape[:2]
+            # mode=True: Keep instances (抠图，透明背景)
             # Create RGBA image
             masked_image = np.zeros((h, w, 4), dtype=np.uint8)
             # Copy RGB of instance regions
             masked_image[..., :3][mask_3channel] = original_image[mask_3channel]
             # Instance region alpha=255, other regions alpha=0
-            masked_image[..., 3][combined_mask] = 255
-            # Non-instance region alpha=0 (already initialized to 0)
-
+            masked_image[..., 3][combined_mask_bool] = 255
         else:
-            # Remove instances with black background
+            # mode=False: Remove instances (掩膜区域变黑)
             masked_image = np.where(~mask_3channel, original_image, black_background)
+            
         return masked_image
 
 
