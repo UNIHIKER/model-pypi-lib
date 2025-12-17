@@ -37,6 +37,10 @@
 
 
 # model_mp_io
+## 0.1.4    2025-12-16
+
+- 修改image_writer中save_masked_image函数，功能为返回对应id的所有抠图实例。
+
 ## 0.1.3    2025-12-10
 
 - 修改image_writer中save_masked_image函数，功能为根据检测框中的掩码，抠图并返回img。

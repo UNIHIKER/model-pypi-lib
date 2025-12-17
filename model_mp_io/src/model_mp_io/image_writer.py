@@ -181,9 +181,10 @@ class ImageWriter:
             instances_to_process = results
         else:
             # 只处理指定 ID 的实例
-            if id < 0 or id >= len(results):
-                raise IndexError(f"Instance id {id} out of range [0, {len(results)-1}]")
-            instances_to_process = [results[id]]
+            instances_to_process = [
+                inst for inst in results
+                if inst.get("class_id") == id
+            ]
 
         # 遍历需要处理的实例，合并它们的掩膜和边界框限制
         for instance in instances_to_process:

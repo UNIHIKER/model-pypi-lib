@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="model-mp-io",
-    version="0.1.3",
+    version="0.1.4",
     author="unihiker Team",
     author_email="unihiker@dfrobot.com",
     description="I/O utilities library for Mind+ model training tool",
